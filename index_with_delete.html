@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pray-wall</title>
+<meta name="theme-color" content="#FFFFFF">
+<style>
+  @font-face {
+    font-family: 'Paperlogy';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2307@1.1/Paperlogy-6SemiBold.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+  }
+  :root {
+    --bg:#FFFFFF; --card:#FFFFFF; --ink:#333333; --muted:#666666; --line:#E5E7EB; --brand:#333333;
+    --warn:#B91C1C;
+  }
+  *{box-sizing:border-box}
+  body {
+    margin:0; font-family:'Paperlogy','Noto Sans KR','Malgun Gothic',sans-serif;
+    background:var(--bg); color:var(--ink);
+  }
+  header {
+    position:sticky; top:0; background:var(--card); border-bottom:1px solid var(--line); z-index:10;
+  }
+  .wrap{max-width:720px; margin:0 auto; padding:0 16px;}
+  .bar{display:flex; align-items:center; justify-content:center; padding:14px 0;}
+  .brand{font-weight:800; font-size:20px;}
+  .composer {
+    background:var(--card); border:1px solid var(--line);
+    border-radius:14px; padding:12px; margin:14px 0;
+  }
+  textarea {
+    width:100%; border:none; resize:none; min-height:86px; outline:none; background:transparent; color:var(--ink);
+    font-size:16px; line-height:1.5;
+  }
+  .row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; flex-wrap:wrap}
+  .muted{color:var(--muted); font-size:12px;}
+  .btn{
+    border:1px solid var(--line); background:var(--card); color:var(--ink);
+    padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer;
+  }
+  .btn.primary{background:var(--brand); color:#fff; border-color:var(--brand)}
+  .feed{display:flex; flex-direction:column; gap:12px; margin:16px 0 96px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px;}
+  .text{white-space:pre-wrap; word-break:break-word; font-size:16px; line-height:1.6;}
+  .meta{display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap:8px; flex-wrap:wrap}
+  .time{font-size:12px; color:var(--muted);} 
+  .actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
+  .chip{
+    display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px; border:1px solid var(--line);
+    background:#FAFAFA; cursor:pointer; user-select:none; color:var(--ink);
+  }
+  .chip.report{border-color:#FEE2E2; background:#FEF2F2}
+  .chip.report .ico{color:var(--warn)}
+  .chip.delete{border-color:#FECACA; background:#FFF1F2}
+  .chip.delete .ico{color:#B91C1C}
+  .count{font-weight:700}
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap bar">
+      <div class="brand">Pray-wall</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="composer" aria-label="기도 글 작성">
+      <textarea id="postInput" maxlength="500" placeholder="함께 나눌 기도 제목을 적어주세요"></textarea>
+      <div class="row">
+        <div class="muted"><span id="count">0</span> / 500</div>
+        <div>
+          <button class="btn" id="clearBtn" title="지우기">지우기</button>
+          <button class="btn primary" id="postBtn" disabled>올리기</button>
+        </div>
+        <div class="muted">주의: 개인정보, 비방, 광고, 정치·선동, 무단 홍보 등은 <span style="color:red;font-weight:bold">신고</span> 대상입니다.</div>
+      </div>
+    </section>
+
+    <section class="feed" id="feed" aria-live="polite"></section>
+  </main>
+
+<script>
+(() => {
+  const LS_KEY = "praywall_posts";
+  const AMEN_KEY = "praywall_amen";
+  const HALLE_KEY = "praywall_halle";
+  const REPORT_KEY = "praywall_reports";
+  const DEVICE_KEY = "praywall_device_id";
+
+  const feed = document.querySelector("#feed");
+  const postInput = document.querySelector("#postInput");
+  const postBtn = document.querySelector("#postBtn");
+  const clearBtn = document.querySelector("#clearBtn");
+  const count = document.querySelector("#count");
+
+  function getDeviceId(){
+    let id = localStorage.getItem(DEVICE_KEY);
+    if(!id){
+      id = "dev_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  }
+  const deviceId = getDeviceId();
+
+  function now(){ return Date.now(); }
+  function load(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)) || fallback; }catch(e){ return fallback; } }
+  function save(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
+
+  let posts = load(LS_KEY, []).sort((a,b)=>b.ts-a.ts);
+  let amenMap = load(AMEN_KEY, {});
+  let halleMap = load(HALLE_KEY, {});
+  let reportMap = load(REPORT_KEY, {});
+
+  function fmt(ts){
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2,"0");
+    return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function render(){
+    feed.innerHTML = "";
+    const visible = posts.filter(p => !reportMap[p.id]?.hidden);
+    if(visible.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "card muted";
+      empty.style.textAlign="center";
+      empty.style.padding="24px";
+      empty.textContent = "첫 글을 올려보세요. 🙏";
+      feed.appendChild(empty);
+      return;
+    }
+    visible.forEach(p => {
+      const card = document.createElement("article");
+      card.className = "card";
+      card.setAttribute("data-id", p.id);
+
+      const txt = document.createElement("div");
+      txt.className = "text";
+      txt.textContent = p.text;
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+
+      const time = document.createElement("div");
+      time.className = "time";
+      const repCount = p.reports || 0;
+      time.innerHTML = `${fmt(p.ts)}${repCount>0 ? ` · 신고 ${repCount}`:""}`;
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      // Amen
+      const amen = document.createElement("button");
+      amen.className = "chip";
+      const amenOn = !!amenMap[p.id];
+      amen.setAttribute("aria-pressed", amenOn ? "true" : "false");
+      amen.innerHTML = `<span>아멘</span><span class="count">${p.amen||0}</span>`;
+      amen.addEventListener("click", () => {
+        if(amenMap[p.id]){
+          amenMap[p.id] = false;
+          p.amen = Math.max(0, (p.amen||0) - 1);
+          amen.setAttribute("aria-pressed","false");
+        }else{
+          amenMap[p.id] = true;
+          p.amen = (p.amen||0) + 1;
+          amen.setAttribute("aria-pressed","true");
+        }
+        save(AMEN_KEY, amenMap);
+        save(LS_KEY, posts);
+        amen.querySelector(".count").textContent = p.amen || 0;
+      });
+      actions.appendChild(amen);
+
+      // Hallelujah
+      const halle = document.createElement("button");
+      halle.className = "chip";
+      const halleOn = !!halleMap[p.id];
+      halle.setAttribute("aria-pressed", halleOn ? "true" : "false");
+      halle.innerHTML = `<span>할렐루야</span><span class="count">${p.halle||0}</span>`;
+      halle.addEventListener("click", () => {
+        if(halleMap[p.id]){
+          halleMap[p.id] = false;
+          p.halle = Math.max(0, (p.halle||0) - 1);
+          halle.setAttribute("aria-pressed","false");
+        }else{
+          halleMap[p.id] = true;
+          p.halle = (p.halle||0) + 1;
+          halle.setAttribute("aria-pressed","true");
+        }
+        save(HALLE_KEY, halleMap);
+        save(LS_KEY, posts);
+        halle.querySelector(".count").textContent = p.halle || 0;
+      });
+      actions.appendChild(halle);
+
+      // Report
+      const reportBtn = document.createElement("button");
+      reportBtn.className = "chip report";
+      reportBtn.innerHTML = `<span class="ico">⚑</span><span>신고</span>`;
+      reportBtn.addEventListener("click", () => {
+        if(confirm("이 글을 신고할까요?")){
+          p.reports = (p.reports||0) + 1;
+          reportMap[p.id] = { hidden:true, at: now() };
+          save(REPORT_KEY, reportMap);
+          save(LS_KEY, posts);
+          render();
+        }
+      });
+      actions.appendChild(reportBtn);
+
+      // Delete (only for my post)
+      if (p.owner === deviceId) {
+        const delBtn = document.createElement("button");
+        delBtn.className = "chip delete";
+        delBtn.innerHTML = `<span class="ico">🗑️</span><span>삭제</span>`;
+        delBtn.addEventListener("click", () => {
+          if (confirm("이 글을 삭제할까요?")) {
+            // Remove from list
+            posts = posts.filter(x => x.id !== p.id);
+            // Clean related local states
+            delete amenMap[p.id];
+            delete halleMap[p.id];
+            delete reportMap[p.id];
+            // Persist
+            save(AMEN_KEY, amenMap);
+            save(HALLE_KEY, halleMap);
+            save(REPORT_KEY, reportMap);
+            save(LS_KEY, posts);
+            render();
+          }
+        });
+        actions.appendChild(delBtn);
+      }
+
+      meta.appendChild(time);
+      meta.appendChild(actions);
+
+      card.appendChild(txt);
+      card.appendChild(meta);
+      feed.appendChild(card);
+    });
+  }
+
+  function updateCount(){
+    count.textContent = postInput.value.length;
+    postBtn.disabled = !(postInput.value.trim().length > 0);
+  }
+
+  function post(){
+    const text = postInput.value.trim();
+    if(!text) return;
+    const item = {
+      id: "p_" + Date.now().toString(36),
+      text, ts: now(), amen:0, halle:0, reports:0, owner: deviceId
+    };
+    posts.unshift(item);
+    save(LS_KEY, posts);
+    postInput.value = "";
+    updateCount();
+    render();
+  }
+
+  postBtn.addEventListener("click", post);
+  clearBtn.addEventListener("click", () => { postInput.value=""; updateCount(); });
+  postInput.addEventListener("input", updateCount);
+
+  updateCount();
+  render();
+})();
+</script>
+</body>
+</html>
