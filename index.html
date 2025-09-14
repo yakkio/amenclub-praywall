@@ -97,7 +97,7 @@
 
   <main class="wrap">
     <section class="composer" aria-label="기도 글 작성">
-      <textarea id="postInput" maxlength="500" placeholder="기도 제목을 적어주시면 함께 기도하겠습니다"></textarea>
+      <textarea id="postInput" maxlength="500" placeholder="기도제목을 짧게 남겨주세요 (최대 500자). 댓글은 없고, 하트와 신고 버튼만 있어요."></textarea>
       <div class="row">
         <div class="muted"><span id="count">0</span> / 500</div>
         <div>
@@ -112,7 +112,11 @@
   </main>
 
   <footer>
-
+    <div class="util">
+      <button class="btn" id="exportBtn" title="백업 내보내기">백업 내보내기</button>
+      <button class="btn" id="importBtn" title="백업 불러오기">백업 불러오기</button>
+      <button class="btn" id="wipeBtn" title="전체 삭제">이 기기 데이터 삭제</button>
+    </div>
   </footer>
 
 <script>
