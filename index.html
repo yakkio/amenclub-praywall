@@ -77,13 +77,15 @@
       margin-top: 20px;
       padding: 15px;
       border-bottom: 1px solid #eee;
+      position: relative;
     }
     .post p {
-      margin: 0 0 10px 0;
+      margin: 0 0 30px 0;
     }
     .reactions {
       display: flex;
       gap: 10px;
+      justify-content: flex-end; /* 오른쪽 정렬 */
     }
     .toggle {
       padding: 6px 12px;
@@ -92,9 +94,17 @@
       cursor: pointer;
       font-size: 14px;
     }
-    .toggle.active {
+    .toggle.amen.active {
+      background: #cce0ff;
+      border-color: #3399ff;
+    }
+    .toggle.hallelujah.active {
+      background: #e0ccff;
+      border-color: #9966ff;
+    }
+    .toggle.report.active {
       background: #ffcccc;
-      border-color: #ff9999;
+      border-color: #ff6666;
     }
   </style>
 </head>
@@ -135,9 +145,9 @@
       post.innerHTML = `
         <p>${text}</p>
         <div class="reactions">
-          <div class="toggle" onclick="toggleReaction(this)">아멘 (0)</div>
-          <div class="toggle" onclick="toggleReaction(this)">할렐루야 (0)</div>
-          <div class="toggle">🚩 신고</div>
+          <div class="toggle amen" onclick="toggleReaction(this)">아멘 (0)</div>
+          <div class="toggle hallelujah" onclick="toggleReaction(this)">할렐루야 (0)</div>
+          <div class="toggle report" onclick="toggleReaction(this)">🚩 신고 (0)</div>
         </div>
       `;
       postsDiv.prepend(post);
@@ -146,7 +156,7 @@
 
     function toggleReaction(el) {
       let text = el.textContent;
-      let count = parseInt(text.match(/\d+/)[0]);
+      let count = parseInt(text.match(/\d+/)?.[0] || "0");
       if (el.classList.contains('active')) {
         count -= 1;
         el.classList.remove('active');
