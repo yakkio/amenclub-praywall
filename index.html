@@ -3,9 +3,19 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>아멘클럽 · 프레이월</title>
+<title>Pray-wall</title>
 <meta name="theme-color" content="#FFFFFF">
 <style>
+  
+  /* Paperlogy font */
+  @font-face {
+    font-family:'Paperlogy','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2307@1.1/Paperlogy-6SemiBold.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+  }
+
   :root{
     --bg:#FFFFFF; --card:#FFFFFF; --ink:#333333; --muted:#666666; --line:#E5E7EB; --brand:#333333;
     --heart:#333333; --warn:#B91C1C; --okay:#16A34A;
@@ -76,12 +86,12 @@
 </head>
 <body>
   <header>
-    <div class="wrap bar">
+    <div class="wrap bar" style="justify-content:center;">
       <div>
-        <div class="brand">아멘클럽 · 프레이월</div>
-        <div class="sub">글만 올리고, 하트로 함께 기도해요 · 댓글 없음</div>
+        <div class="brand">Pray-wall</div>
+        
       </div>
-      <button class="ghost" id="refreshBtn" title="새로고침">↻</button>
+      
     </div>
   </header>
 
@@ -89,7 +99,7 @@
     <section class="composer" aria-label="기도 글 작성">
       <textarea id="postInput" maxlength="500" placeholder="기도제목을 짧게 남겨주세요 (최대 500자). 댓글은 없고, 하트와 신고 버튼만 있어요."></textarea>
       <div class="row">
-        <div class="muted"><span id="count">0</span> / 500 · 업로드는 <span id="cooldown">가능</span></div>
+        <div class="muted"><span id="count">0</span> / 500</div>
         <div>
           <button class="btn" id="clearBtn" title="지우기">지우기</button>
           <button class="btn primary" id="postBtn" disabled>올리기</button>
@@ -112,11 +122,12 @@
 <script>
 (() => {
   const LS_KEY = "amenclub_praywall_posts_v2";
-  const LIKE_KEY = "amenclub_praywall_likes_v2";
+  const AMEN_KEY = "amenclub_praywall_amen_v1";
+  const HALLE_KEY = "amenclub_praywall_halle_v1";
   const REPORT_KEY = "amenclub_praywall_reports_v2";
   const DEVICE_KEY = "amenclub_device_id";
   const LAST_POST_KEY = "amenclub_last_post_ts";
-  const POST_COOLDOWN_MS = 15000; // 15초 쿨다운(스팸 방지)
+  const POST_COOLDOWN_MS = 0; // 쿨다운 비활성화
 
   const blacklist = ["욕설1","욕설2","http://","https://"]; // 필요 시 단어 보강
 
@@ -128,7 +139,6 @@
   const postBtn = $("#postBtn");
   const clearBtn = $("#clearBtn");
   const count = $("#count");
-  const cool = $("#cooldown");
   const exportBtn = $("#exportBtn");
   const importBtn = $("#importBtn");
   const wipeBtn = $("#wipeBtn");
@@ -156,7 +166,8 @@
   }
 
   let posts = load(LS_KEY, []).sort((a,b)=>b.ts-a.ts);
-  let likeMap = load(LIKE_KEY, {});
+  let amenMap = load(AMEN_KEY, {});
+  let halleMap = load(HALLE_KEY, {});
   let reportMap = load(REPORT_KEY, {});
 
   function sanitize(input){
@@ -206,27 +217,49 @@
       const actions = document.createElement("div");
       actions.className = "actions";
 
-      // Heart
-      const heart = document.createElement("button");
-      heart.className = "chip heart";
-      const liked = !!likeMap[p.id];
-      heart.setAttribute("aria-pressed", liked ? "true" : "false");
-      heart.innerHTML = `<span class="ico">❤</span><span class="count">${p.likes||0}</span>`;
-      heart.addEventListener("click", () => {
-        if(likeMap[p.id]){
-          likeMap[p.id] = false;
-          p.likes = Math.max(0, (p.likes||0) - 1);
-          heart.setAttribute("aria-pressed","false");
+      // Amen chip
+      const amen = document.createElement("button");
+      amen.className = "chip";
+      const amenOn = !!amenMap[p.id];
+      amen.setAttribute("aria-pressed", amenOn ? "true" : "false");
+      amen.innerHTML = `<span>아멘</span><span class="count">${p.amen||0}</span>`;
+      amen.addEventListener("click", () => {
+        if(amenMap[p.id]){
+          amenMap[p.id] = false;
+          p.amen = Math.max(0, (p.amen||0) - 1);
+          amen.setAttribute("aria-pressed","false");
         }else{
-          likeMap[p.id] = true;
-          p.likes = (p.likes||0) + 1;
-          heart.setAttribute("aria-pressed","true");
+          amenMap[p.id] = true;
+          p.amen = (p.amen||0) + 1;
+          amen.setAttribute("aria-pressed","true");
         }
-        save(LIKE_KEY, likeMap);
+        save(AMEN_KEY, amenMap);
         save(LS_KEY, posts);
-        heart.querySelector(".count").textContent = p.likes || 0;
+        amen.querySelector(".count").textContent = p.amen || 0;
       });
-      actions.appendChild(heart);
+      actions.appendChild(amen);
+
+      // Hallelujah chip
+      const halle = document.createElement("button");
+      halle.className = "chip";
+      const halleOn = !!halleMap[p.id];
+      halle.setAttribute("aria-pressed", halleOn ? "true" : "false");
+      halle.innerHTML = `<span>할렐루야</span><span class="count">${p.halle||0}</span>`;
+      halle.addEventListener("click", () => {
+        if(halleMap[p.id]){
+          halleMap[p.id] = false;
+          p.halle = Math.max(0, (p.halle||0) - 1);
+          halle.setAttribute("aria-pressed","false");
+        }else{
+          halleMap[p.id] = true;
+          p.halle = (p.halle||0) + 1;
+          halle.setAttribute("aria-pressed","true");
+        }
+        save(HALLE_KEY, halleMap);
+        save(LS_KEY, posts);
+        halle.querySelector(".count").textContent = p.halle || 0;
+      });
+      actions.appendChild(halle);
 
       // Report
       const reportBtn = document.createElement("button");
@@ -273,13 +306,11 @@
     count.textContent = postInput.value.length;
     const cd = Math.max(0, (parseInt(localStorage.getItem(LAST_POST_KEY) || "0",10) + POST_COOLDOWN_MS) - now());
     if(cd > 0){
-      cool.textContent = `${Math.ceil(cd/1000)}초 대기`;
-      cool.className = "warn";
+      
     }else{
-      cool.textContent = "가능";
-      cool.className = "ok";
+      
     }
-    postBtn.disabled = !(postInput.value.trim().length > 0 && cd === 0);
+    postBtn.disabled = !(postInput.value.trim().length > 0);
   }
 
   function post(){
@@ -290,18 +321,12 @@
       alert("부적절한 내용 또는 링크가 포함되어 있어 등록할 수 없어요.");
       return;
     }
-    const last = parseInt(localStorage.getItem(LAST_POST_KEY) || "0",10);
-    if(now() - last < POST_COOLDOWN_MS){
-      updateCount();
-      return;
-    }
     const item = {
       id: "p_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
-      text, ts: now(), likes:0, owner: deviceId, reports:0
+      text, ts: now(), amen:0, halle:0, owner: deviceId, reports:0
     };
     posts.unshift(item);
-    localStorage.setItem(LAST_POST_KEY, String(now()));
-    save(LS_KEY, posts);
+        save(LS_KEY, posts);
     postInput.value = "";
     updateCount();
     render();
