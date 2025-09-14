@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>아멘클럽 · 프레이월</title>
+<meta name="theme-color" content="#FFFFFF">
+<style>
+  :root{
+    --bg:#FFFFFF; --card:#FFFFFF; --ink:#333333; --muted:#666666; --line:#E5E7EB; --brand:#333333;
+    --heart:#333333; --warn:#B91C1C; --okay:#16A34A;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+    background:var(--bg); color:var(--ink);
+  }
+  header{
+    position:sticky; top:0; background:var(--card); border-bottom:1px solid var(--line); z-index:10;
+  }
+  .wrap{max-width:720px; margin:0 auto; padding:0 16px;}
+  .bar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 0;}
+  .brand{font-weight:800; letter-spacing:.2px;}
+  .sub{color:var(--muted); font-size:12px;}
+  .composer{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:14px; padding:12px; box-shadow:0 1px 2px rgba(0,0,0,.03); margin:14px 0;
+  }
+  textarea{
+    width:100%; border:none; resize:none; min-height:86px; outline:none; background:transparent; color:var(--ink);
+    font-size:16px; line-height:1.5;
+  }
+  .row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; flex-wrap:wrap}
+  .muted{color:var(--muted); font-size:12px;}
+  .btn{
+    border:1px solid var(--line); background:var(--card); color:var(--ink); padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer;
+  }
+  .btn.primary{background:var(--brand); color:#fff; border-color:var(--brand)}
+  .btn[disabled]{opacity:.5; cursor:not-allowed}
+  .feed{display:flex; flex-direction:column; gap:12px; margin:16px 0 96px}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px;
+    box-shadow:0 1px 2px rgba(0,0,0,.03);
+  }
+  .text{white-space:pre-wrap; word-break:break-word; font-size:16px; line-height:1.6;}
+  .meta{display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap:8px; flex-wrap:wrap}
+  .time{font-size:12px; color:var(--muted);}
+  .actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .chip{
+    display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px; border:1px solid var(--line);
+    background:#FAFAFA; cursor:pointer; user-select:none; color:var(--ink);
+  }
+  .chip.heart .ico{color:var(--heart)}
+  .chip.report{border-color:#FEE2E2; background:#FEF2F2}
+  .chip.report .ico{color:var(--warn)}
+  .count{font-weight:700}
+  .ghost{
+    border:none; background:transparent; color:var(--muted); cursor:pointer; padding:8px 10px; border-radius:8px;
+  }
+  .ghost:hover{background:#F7F7F7}
+  footer{
+    position:fixed; bottom:0; left:0; right:0; background:linear-gradient(transparent, rgba(255,255,255,.95) 18%, rgba(255,255,255,1)); padding-bottom:10px;
+  }
+  .util{
+    max-width:720px; margin:0 auto; padding:8px 16px; display:flex; gap:8px; justify-content:space-between; flex-wrap:wrap;
+  }
+  .util .btn, .util .ghost{flex:1; min-width:140px}
+  .notice{
+    background:#F9FAFB; border:1px dashed var(--line); border-radius:12px; padding:10px; font-size:12px; color:var(--muted); margin-top:6px;
+  }
+  .warn{color:var(--warn); font-weight:700}
+  .ok{color:var(--okay); font-weight:700}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap bar">
+      <div>
+        <div class="brand">아멘클럽 · 프레이월</div>
+        <div class="sub">글만 올리고, 하트로 함께 기도해요 · 댓글 없음</div>
+      </div>
+      <button class="ghost" id="refreshBtn" title="새로고침">↻</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="composer" aria-label="기도 글 작성">
+      <textarea id="postInput" maxlength="500" placeholder="기도제목을 짧게 남겨주세요 (최대 500자). 댓글은 없고, 하트와 신고 버튼만 있어요."></textarea>
+      <div class="row">
+        <div class="muted"><span id="count">0</span> / 500 · 업로드는 <span id="cooldown">가능</span></div>
+        <div>
+          <button class="btn" id="clearBtn" title="지우기">지우기</button>
+          <button class="btn primary" id="postBtn" disabled>올리기</button>
+        </div>
+        <div class="notice">주의: 개인정보, 비방, 광고, 정치·선동, 무단 홍보 등은 <span class="warn">신고</span> 대상입니다. 반복 시 이용 제한될 수 있어요.</div>
+      </div>
+    </section>
+
+    <section class="feed" id="feed" aria-live="polite"></section>
+  </main>
+
+  <footer>
+    <div class="util">
+      <button class="btn" id="exportBtn" title="백업 내보내기">백업 내보내기</button>
+      <button class="btn" id="importBtn" title="백업 불러오기">백업 불러오기</button>
+      <button class="btn" id="wipeBtn" title="전체 삭제">이 기기 데이터 삭제</button>
+    </div>
+  </footer>
+
+<script>
+(() => {
+  const LS_KEY = "amenclub_praywall_posts_v2";
+  const LIKE_KEY = "amenclub_praywall_likes_v2";
+  const REPORT_KEY = "amenclub_praywall_reports_v2";
+  const DEVICE_KEY = "amenclub_device_id";
+  const LAST_POST_KEY = "amenclub_last_post_ts";
+  const POST_COOLDOWN_MS = 15000; // 15초 쿨다운(스팸 방지)
+
+  const blacklist = ["욕설1","욕설2","http://","https://"]; // 필요 시 단어 보강
+
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => document.querySelectorAll(sel);
+
+  const feed = $("#feed");
+  const postInput = $("#postInput");
+  const postBtn = $("#postBtn");
+  const clearBtn = $("#clearBtn");
+  const count = $("#count");
+  const cool = $("#cooldown");
+  const exportBtn = $("#exportBtn");
+  const importBtn = $("#importBtn");
+  const wipeBtn = $("#wipeBtn");
+  const refreshBtn = $("#refreshBtn");
+
+  function getDeviceId(){
+    let id = localStorage.getItem(DEVICE_KEY);
+    if(!id){
+      id = "dev_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  }
+  const deviceId = getDeviceId();
+
+  function now(){ return Date.now(); }
+  function load(key, fallback){
+    try{
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    }catch(e){ return fallback; }
+  }
+  function save(key, value){
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  let posts = load(LS_KEY, []).sort((a,b)=>b.ts-a.ts);
+  let likeMap = load(LIKE_KEY, {});
+  let reportMap = load(REPORT_KEY, {});
+
+  function sanitize(input){
+    // strip HTML tags & trim
+    const txt = input.replace(/<[^>]*>?/gm, "").trim();
+    return txt;
+  }
+  function blocked(input){
+    const low = input.toLowerCase();
+    return blacklist.some(w => low.includes(w.toLowerCase()));
+  }
+  function fmt(ts){
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2,"0");
+    return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function render(){
+    feed.innerHTML = "";
+    const visible = posts.filter(p => !reportMap[p.id]?.hidden); // locally hidden if reported by me
+    if(visible.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "card muted";
+      empty.style.textAlign="center";
+      empty.style.padding="24px";
+      empty.textContent = "첫 글을 올려보세요. 하트로 함께 기도해요 🙏";
+      feed.appendChild(empty);
+      return;
+    }
+    visible.forEach(p => {
+      const card = document.createElement("article");
+      card.className = "card";
+      card.setAttribute("data-id", p.id);
+
+      const txt = document.createElement("div");
+      txt.className = "text";
+      txt.textContent = p.text;
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+
+      const time = document.createElement("div");
+      time.className = "time";
+      const repCount = p.reports || 0;
+      time.innerHTML = `${fmt(p.ts)}${repCount>0 ? ` · 신고 ${repCount}`:""}`;
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      // Heart
+      const heart = document.createElement("button");
+      heart.className = "chip heart";
+      const liked = !!likeMap[p.id];
+      heart.setAttribute("aria-pressed", liked ? "true" : "false");
+      heart.innerHTML = `<span class="ico">❤</span><span class="count">${p.likes||0}</span>`;
+      heart.addEventListener("click", () => {
+        if(likeMap[p.id]){
+          likeMap[p.id] = false;
+          p.likes = Math.max(0, (p.likes||0) - 1);
+          heart.setAttribute("aria-pressed","false");
+        }else{
+          likeMap[p.id] = true;
+          p.likes = (p.likes||0) + 1;
+          heart.setAttribute("aria-pressed","true");
+        }
+        save(LIKE_KEY, likeMap);
+        save(LS_KEY, posts);
+        heart.querySelector(".count").textContent = p.likes || 0;
+      });
+      actions.appendChild(heart);
+
+      // Report
+      const reportBtn = document.createElement("button");
+      reportBtn.className = "chip report";
+      reportBtn.innerHTML = `<span class="ico">⚑</span><span>신고</span>`;
+      reportBtn.addEventListener("click", () => {
+        if(confirm("이 글을 신고할까요? 부적절한 내용은 숨겨지고, 신고 수가 기록됩니다.")){
+          p.reports = (p.reports||0) + 1;
+          reportMap[p.id] = { hidden:true, at: now() };
+          save(REPORT_KEY, reportMap);
+          save(LS_KEY, posts);
+          render();
+        }
+      });
+      actions.appendChild(reportBtn);
+
+      // delete button (only owner on this device)
+      if(p.owner === deviceId){
+        const del = document.createElement("button");
+        del.className = "ghost";
+        del.textContent = "삭제";
+        del.addEventListener("click", () => {
+          if(confirm("이 글을 삭제할까요?")){
+            posts = posts.filter(x => x.id !== p.id);
+            delete likeMap[p.id];
+            delete reportMap[p.id];
+            save(LS_KEY, posts); save(LIKE_KEY, likeMap); save(REPORT_KEY, reportMap);
+            render();
+          }
+        });
+        actions.appendChild(del);
+      }
+
+      meta.appendChild(time);
+      meta.appendChild(actions);
+
+      card.appendChild(txt);
+      card.appendChild(meta);
+      feed.appendChild(card);
+    });
+  }
+
+  function updateCount(){
+    count.textContent = postInput.value.length;
+    const cd = Math.max(0, (parseInt(localStorage.getItem(LAST_POST_KEY) || "0",10) + POST_COOLDOWN_MS) - now());
+    if(cd > 0){
+      cool.textContent = `${Math.ceil(cd/1000)}초 대기`;
+      cool.className = "warn";
+    }else{
+      cool.textContent = "가능";
+      cool.className = "ok";
+    }
+    postBtn.disabled = !(postInput.value.trim().length > 0 && cd === 0);
+  }
+
+  function post(){
+    const raw = postInput.value;
+    const text = sanitize(raw);
+    if(!text) return;
+    if(blocked(text)){
+      alert("부적절한 내용 또는 링크가 포함되어 있어 등록할 수 없어요.");
+      return;
+    }
+    const last = parseInt(localStorage.getItem(LAST_POST_KEY) || "0",10);
+    if(now() - last < POST_COOLDOWN_MS){
+      updateCount();
+      return;
+    }
+    const item = {
+      id: "p_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+      text, ts: now(), likes:0, owner: deviceId, reports:0
+    };
+    posts.unshift(item);
+    localStorage.setItem(LAST_POST_KEY, String(now()));
+    save(LS_KEY, posts);
+    postInput.value = "";
+    updateCount();
+    render();
+  }
+
+  // backups
+  exportBtn.addEventListener("click", () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      posts, likeMap, reportMap, version:"v2"
+    };
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "amenclub_praywall_backup_v2.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  importBtn.addEventListener("click", async () => {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept="application/json";
+    input.onchange = async () => {
+      const file = input.files[0];
+      if(!file) return;
+      const text = await file.text();
+      try{
+        const data = JSON.parse(text);
+        if(data.posts && Array.isArray(data.posts)){
+          posts = data.posts.sort((a,b)=>b.ts-a.ts);
+          likeMap = data.likeMap || {};
+          reportMap = data.reportMap || {};
+          save(LS_KEY, posts); save(LIKE_KEY, likeMap); save(REPORT_KEY, reportMap);
+          render();
+          alert("백업을 불러왔어요.");
+        }else{
+          alert("유효한 백업 파일이 아니에요.");
+        }
+      }catch(e){
+        alert("파일 읽기 실패");
+      }
+    };
+    input.click();
+  });
+
+  wipeBtn.addEventListener("click", () => {
+    if(confirm("이 기기에서 저장된 프레이월 데이터를 모두 삭제할까요? (다른 기기에는 영향 없음)")){
+      posts = [];
+      likeMap = {};
+      reportMap = {};
+      localStorage.removeItem(LAST_POST_KEY);
+      save(LS_KEY, posts); save(LIKE_KEY, likeMap); save(REPORT_KEY, reportMap);
+      render();
+    }
+  });
+
+  // bindings
+  postBtn.addEventListener("click", post);
+  clearBtn.addEventListener("click", () => { postInput.value=""; updateCount(); });
+  postInput.addEventListener("input", updateCount);
+  refreshBtn.addEventListener("click", render);
+
+  // init
+  updateCount();
+  render();
+})();
+</script>
+</body>
+</html>
